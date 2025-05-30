@@ -1,6 +1,6 @@
 services:
   myapp:
-    image: myapp:1
+    image: wslapp:1
     ports:
       - "5000:5000"
     volumes:
