@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-with-pv
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27.5-alpine
+      ports:
+        - containerPort: 80
+      volumeMounts:
+        - name: html-volume
+          mountPath: "/usr/share/nginx/html"
+    - name: html-volume
+      persistentVolumeClaim:
+        claimName: app-pvc
