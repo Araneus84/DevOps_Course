@@ -4,7 +4,7 @@
 
 ## Project Overview
 
-This repository contains the foundational elements for a DevOps project, focusing on containerization with Docker. The initial phase involves building a Docker image and running it using `docker-compose`. As the project evolves, this README will be updated to reflect new stages, technologies, and functionalities.
+This repository contains the foundational elements for a DevOps project, focusing on containerization with Docker and deployment to Kubernetes. The initial phase involves building a Docker image and running it using `docker-compose`. The project has now evolved to include advanced Kubernetes features like ConfigMaps, Secrets, Health Probes, and CronJobs.
 
 ---
 
@@ -20,14 +20,21 @@ Before you begin, ensure you have the following software installed on your syste
     * [Download Git](https://git-scm.com/downloads)
 * **Docker Engine:** For building and running Docker containers.
     * [Install Docker Engine](https://docs.docker.com/engine/install/)
+* **Kubernetes CLI (kubectl):** For interacting with Kubernetes clusters.
+    * [Install kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+* **Minikube (optional):** For local Kubernetes development.
+    * [Install Minikube](https://minikube.sigs.k8s.io/docs/start/)
 
 You can verify your Docker installation by running:
 
 ```bash
 docker --version
+kubectl version --client
 ```
 
 ### Installation and Setup
+
+#### Docker Setup
 
 Follow these steps to get your initial Docker image built and running:
 
@@ -40,10 +47,10 @@ Follow these steps to get your initial Docker image built and running:
     ```
 
 2.  **Build the Docker Image:**
-    From the root of your project directory (where `Dockerfile` and `docker-compose.yaml` are located), build your Docker image. Replace `<your-image-name>` with a meaningful name for your image (e.g., `my-app-image`, `devops-web-app`).
+    From the root of your project directory (where `Dockerfile` and `docker-compose.yaml` are located), build your Docker image.
 
     ```bash
-    docker build -t <your-image-name> .
+    docker build -t suenara/myapp:1 .
     ```
 
 3.  **Verify the Docker Image:**
@@ -52,46 +59,109 @@ Follow these steps to get your initial Docker image built and running:
     ```bash
     docker images
     ```
-    You should see an entry for `<your-image-name>`.
 
-4.  **Configure `docker-compose.yaml`:**
-    Open the `docker-compose.yaml` file in your project directory. Locate the `image:` line for your service and update it to use the image you just built.
-
-    **Before (Example):**
-    ```yaml
-    services:
-      web:
-        build: .
-        ports:
-          - "80:80"
-        # image: some-base-image # This line might be commented out or different
-    ```
-
-    **After (Example):**
-    ```yaml
-    services:
-      web:
-        # build: . # You can comment this out or remove it if you always build manually
-        ports:
-          - "80:80"
-        image: <your-image-name> # <--- Update this line
-    ```
-    *Replace `<your-image-name>` with the exact name you used in step 2.*
-
-5.  **Run with Docker Compose:**
+4.  **Run with Docker Compose:**
     Start your application using Docker Compose:
 
     ```bash
     docker-compose up -d
     ```
-    The `-d` flag runs the containers in detached mode (in the background).
 
-6.  **Verify Running Containers:**
+5.  **Verify Running Containers:**
     Check that your container(s) are running:
 
     ```bash
     docker ps
     ```
+
+#### Kubernetes Deployment
+
+Follow these steps to deploy your application to Kubernetes:
+
+1. **Create Namespace (Optional):**
+   ```bash
+   kubectl create namespace myapp
+   kubectl config set-context --current --namespace=myapp
+   ```
+
+2. **Deploy ConfigMap and Secrets:**
+   ```bash
+   kubectl apply -f myapp-configmap.yaml
+   kubectl apply -f myapp-secrets.yaml
+   ```
+
+3. **Create PersistentVolumeClaim:**
+   ```bash
+   kubectl apply -f myapp-pvc.yaml
+   ```
+
+4. **Deploy the Application:**
+   ```bash
+   kubectl apply -f myapp-deployment.yaml
+   kubectl apply -f myapp-service.yaml
+   ```
+
+5. **Configure Autoscaling:**
+   ```bash
+   kubectl apply -f myapp-ha.yaml
+   ```
+
+6. **Set Up CronJob:**
+   ```bash
+   kubectl apply -f myapp-cronjob.yaml
+   ```
+
+7. **Verify Deployment:**
+   ```bash
+   kubectl get all
+   kubectl get cm,secrets,pvc,cronjobs
+   ```
+
+8. **Access the Application:**
+   ```bash
+   # For minikube
+   minikube service myapp-service
+   
+   # For standard kubernetes
+   kubectl get service myapp-service
+   # Note the NodePort and access via http://node-ip:nodePort
+   ```
+
+---
+
+## Kubernetes Configuration Details
+
+### ConfigMaps and Secrets
+
+Our application uses ConfigMaps and Secrets to externalize configuration:
+
+- **ConfigMap (`myapp-configmap.yaml`):** Stores non-sensitive configuration like environment settings, log levels, and feature flags.
+- **Secret (`myapp-secrets.yaml`):** Stores sensitive information like API keys and database credentials.
+
+### Health Monitoring
+
+The application implements two types of probes to ensure proper health monitoring:
+
+- **Liveness Probe:** Checks if the application is running. If this check fails, Kubernetes restarts the container.
+- **Readiness Probe:** Checks if the application is ready to receive traffic. If this check fails, Kubernetes stops sending traffic to the pod until it passes.
+
+### Autoscaling
+
+The application uses Horizontal Pod Autoscaling to automatically scale based on CPU utilization:
+
+- **HPA (`myapp-ha.yaml`):** Configures autoscaling with a minimum of 2 replicas and a maximum of 5, targeting 50% CPU utilization.
+
+### Automated Tasks
+
+The application uses CronJobs to automate periodic tasks:
+
+- **CronJob (`myapp-cronjob.yaml`):** Runs a usage report generation task hourly to collect and analyze application metrics.
+
+### Persistent Storage
+
+The application uses persistent storage for logs:
+
+- **PersistentVolumeClaim (`myapp-pvc.yaml`):** Requests storage for application logs that persists across pod restarts.
 
 ---
 
@@ -99,10 +169,19 @@ Follow these steps to get your initial Docker image built and running:
 
 ```
 .
-├── Dockerfile                  # Defines the Docker image
-├── docker-compose.yaml         # Orchestrates Docker containers
-└── README.md                   # This file
-├── ...                         # Other project files will be added here
+├── app.py                       # Main application code
+├── Dockerfile                   # Defines the Docker image
+├── docker-compose.yaml          # Orchestrates Docker containers locally
+├── requirements.txt             # Python dependencies
+├── README.md                    # This file
+├── myapp-deployment.yaml        # Kubernetes Deployment manifest
+├── myapp-service.yaml           # Kubernetes Service manifest
+├── myapp-ha.yaml                # Kubernetes HorizontalPodAutoscaler manifest
+├── myapp-configmap.yaml         # Kubernetes ConfigMap manifest
+├── myapp-secrets.yaml           # Kubernetes Secret manifest
+├── myapp-pvc.yaml               # Kubernetes PersistentVolumeClaim manifest
+├── myapp-cronjob.yaml           # Kubernetes CronJob manifest
+└── logs/                        # Directory for application logs
 ```
 
 ---
@@ -112,12 +191,12 @@ Follow these steps to get your initial Docker image built and running:
 As the project progresses, we plan to integrate and expand upon the following areas:
 
 * **CI/CD Pipeline:** Implementing automated build, test, and deployment workflows.
-* **Container Orchestration:** Exploring tools like Kubernetes for managing containerized applications at scale.
-* **Monitoring and Logging:** Setting up solutions for observing application health and performance.
-* **Configuration Management:** Automating server and application configuration.
-* **Infrastructure as Code (IaC):** Defining infrastructure using code (e.g., Terraform, Ansible).
-* **Security Best Practices:** Incorporating security measures throughout the DevOps lifecycle.
-* **<Add specific features/technologies you plan to implement>**
+* **Advanced Monitoring:** Setting up Prometheus and Grafana for comprehensive metrics.
+* **Service Mesh:** Implementing Istio for advanced traffic management.
+* **GitOps:** Setting up ArgoCD or Flux for GitOps-based deployments.
+* **Security Scanning:** Implementing container and code security scanning.
+* **Infrastructure as Code (IaC):** Defining infrastructure using Terraform.
+* **Multi-environment Support:** Configuring different environments (dev, staging, prod).
 
 ---
 
