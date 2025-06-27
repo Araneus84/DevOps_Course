@@ -1,7 +1,10 @@
 services:
   myapp:
-    image: wslapp:1
+    build: .
+    image: suenara/myapp:1
     ports:
       - "5000:5000"
     volumes:
       - ./logs:/logs
+    environment:
+      - APP_ENV=development
