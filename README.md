@@ -16,14 +16,14 @@ These instructions will get you a copy of the project up and running on your loc
 
 Before you begin, ensure you have the following software installed on your system:
 
-* **Git:** For cloning the repository.
-    * [Download Git](https://git-scm.com/downloads)
-* **Docker Engine:** For building and running Docker containers.
-    * [Install Docker Engine](https://docs.docker.com/engine/install/)
-* **Kubernetes CLI (kubectl):** For interacting with Kubernetes clusters.
-    * [Install kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-* **Minikube (optional):** For local Kubernetes development.
-    * [Install Minikube](https://minikube.sigs.k8s.io/docs/start/)
+- **Git:** For cloning the repository.
+  - [Download Git](https://git-scm.com/downloads)
+- **Docker Engine:** For building and running Docker containers.
+  - [Install Docker Engine](https://docs.docker.com/engine/install/)
+- **Kubernetes CLI (kubectl):** For interacting with Kubernetes clusters.
+  - [Install kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+- **Minikube (optional):** For local Kubernetes development.
+  - [Install Minikube](https://minikube.sigs.k8s.io/docs/start/)
 
 You can verify your Docker installation by running:
 
@@ -79,53 +79,69 @@ Follow these steps to get your initial Docker image built and running:
 Follow these steps to deploy your application to Kubernetes:
 
 1. **Create Namespace (Optional):**
+
    ```bash
    kubectl create namespace myapp
    kubectl config set-context --current --namespace=myapp
    ```
 
 2. **Deploy ConfigMap and Secrets:**
+
    ```bash
-   kubectl apply -f myapp-configmap.yaml
-   kubectl apply -f myapp-secrets.yaml
+   kubectl apply -f k8s/configmap.yaml
+   kubectl apply -f k8s/secrets.yaml
    ```
 
 3. **Create PersistentVolumeClaim:**
+
    ```bash
-   kubectl apply -f myapp-pvc.yaml
+   kubectl apply -f k8s/pvc.yaml
    ```
 
 4. **Deploy the Application:**
+
    ```bash
-   kubectl apply -f myapp-deployment.yaml
-   kubectl apply -f myapp-service.yaml
+   kubectl apply -f k8s/deployment.yaml
+   kubectl apply -f k8s/service.yaml
    ```
 
 5. **Configure Autoscaling:**
+
    ```bash
-   kubectl apply -f myapp-ha.yaml
+   kubectl apply -f k8s/ha.yaml
    ```
 
 6. **Set Up CronJob:**
+
    ```bash
-   kubectl apply -f myapp-cronjob.yaml
+   kubectl apply -f k8s/cronjob.yaml
    ```
 
 7. **Verify Deployment:**
+
    ```bash
    kubectl get all
    kubectl get cm,secrets,pvc,cronjobs
    ```
 
 8. **Access the Application:**
+
    ```bash
    # For minikube
    minikube service myapp-service
-   
+
    # For standard kubernetes
    kubectl get service myapp-service
    # Note the NodePort and access via http://node-ip:nodePort
    ```
+
+## Cleanup
+
+To remove all Kubernetes resources:
+
+```bash
+kubectl delete -f k8s/
+```
 
 ---
 
@@ -135,8 +151,8 @@ Follow these steps to deploy your application to Kubernetes:
 
 Our application uses ConfigMaps and Secrets to externalize configuration:
 
-- **ConfigMap (`myapp-configmap.yaml`):** Stores non-sensitive configuration like environment settings, log levels, and feature flags.
-- **Secret (`myapp-secrets.yaml`):** Stores sensitive information like API keys and database credentials.
+- **ConfigMap (`k8s/configmap.yaml`):** Stores non-sensitive configuration like environment settings, log levels, and feature flags.
+- **Secret (`k8s/secrets.yaml`):** Stores sensitive information like API keys and database credentials.
 
 ### Health Monitoring
 
@@ -149,19 +165,19 @@ The application implements two types of probes to ensure proper health monitorin
 
 The application uses Horizontal Pod Autoscaling to automatically scale based on CPU utilization:
 
-- **HPA (`myapp-ha.yaml`):** Configures autoscaling with a minimum of 2 replicas and a maximum of 5, targeting 50% CPU utilization.
+- **HPA (`k8s/ha.yaml`):** Configures autoscaling with a minimum of 2 replicas and a maximum of 5, targeting 50% CPU utilization.
 
 ### Automated Tasks
 
 The application uses CronJobs to automate periodic tasks:
 
-- **CronJob (`myapp-cronjob.yaml`):** Runs a usage report generation task hourly to collect and analyze application metrics.
+- **CronJob (`k8s/cronjob.yaml`):** Runs a usage report generation task hourly to collect and analyze application metrics.
 
 ### Persistent Storage
 
 The application uses persistent storage for logs:
 
-- **PersistentVolumeClaim (`myapp-pvc.yaml`):** Requests storage for application logs that persists across pod restarts.
+- **PersistentVolumeClaim (`k8s/pvc.yaml`):** Requests storage for application logs that persists across pod restarts.
 
 ---
 
@@ -174,13 +190,17 @@ The application uses persistent storage for logs:
 ├── docker-compose.yaml          # Orchestrates Docker containers locally
 ├── requirements.txt             # Python dependencies
 ├── README.md                    # This file
-├── myapp-deployment.yaml        # Kubernetes Deployment manifest
-├── myapp-service.yaml           # Kubernetes Service manifest
-├── myapp-ha.yaml                # Kubernetes HorizontalPodAutoscaler manifest
-├── myapp-configmap.yaml         # Kubernetes ConfigMap manifest
-├── myapp-secrets.yaml           # Kubernetes Secret manifest
-├── myapp-pvc.yaml               # Kubernetes PersistentVolumeClaim manifest
-├── myapp-cronjob.yaml           # Kubernetes CronJob manifest
+├── app/                         # Application source code
+├── class4/                      # Class 4 exercises and examples
+├── Data/                        # Data files
+├── k8s/                         # Kubernetes manifests
+│   ├── deployment.yaml          # Kubernetes Deployment manifest
+│   ├── service.yaml             # Kubernetes Service manifest
+│   ├── ha.yaml                  # Kubernetes HorizontalPodAutoscaler manifest
+│   ├── configmap.yaml           # Kubernetes ConfigMap manifest
+│   ├── secrets.yaml             # Kubernetes Secret manifest
+│   ├── pvc.yaml                 # Kubernetes PersistentVolumeClaim manifest
+│   └── cronjob.yaml             # Kubernetes CronJob manifest
 └── logs/                        # Directory for application logs
 ```
 
@@ -190,13 +210,13 @@ The application uses persistent storage for logs:
 
 As the project progresses, we plan to integrate and expand upon the following areas:
 
-* **CI/CD Pipeline:** Implementing automated build, test, and deployment workflows.
-* **Advanced Monitoring:** Setting up Prometheus and Grafana for comprehensive metrics.
-* **Service Mesh:** Implementing Istio for advanced traffic management.
-* **GitOps:** Setting up ArgoCD or Flux for GitOps-based deployments.
-* **Security Scanning:** Implementing container and code security scanning.
-* **Infrastructure as Code (IaC):** Defining infrastructure using Terraform.
-* **Multi-environment Support:** Configuring different environments (dev, staging, prod).
+- **CI/CD Pipeline:** Implementing automated build, test, and deployment workflows.
+- **Advanced Monitoring:** Setting up Prometheus and Grafana for comprehensive metrics.
+- **Service Mesh:** Implementing Istio for advanced traffic management.
+- **GitOps:** Setting up ArgoCD or Flux for GitOps-based deployments.
+- **Security Scanning:** Implementing container and code security scanning.
+- **Infrastructure as Code (IaC):** Defining infrastructure using Terraform.
+- **Multi-environment Support:** Configuring different environments (dev, staging, prod).
 
 ---
 
@@ -214,4 +234,4 @@ We welcome contributions to this project! Please follow these steps:
 
 ## Acknowledgments
 
-* Special thanks to the instructor for guiding us through this DevOps journey.
+- Special thanks to the instructor for guiding us through this DevOps journey.
