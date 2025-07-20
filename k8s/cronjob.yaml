@@ -1,0 +1,29 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: myapp-usage-reporter
+spec:
+  schedule: "0 * * * *"  # Run once every hour
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: usage-reporter
+            image: suenara/myapp:1
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Generating usage report at $(date)"
+              # Simulating usage report generation
+              echo "Application traffic stats: $(curl -s http://myapp-service/metrics 2>/dev/null || echo 'N/A')"
+              echo "Report complete"
+            env:
+              - name: REPORT_DESTINATION
+                valueFrom:
+                  configMapKeyRef:
+                    name: myapp-config
+                    key: LOG_LEVEL
+          restartPolicy: OnFailure
