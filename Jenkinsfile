@@ -29,8 +29,17 @@ pipeline {
                 bat "docker run -d --name test-app-${BUILD_NUMBER} -p 5001:5000 ${IMAGE_NAME}:${BUILD_NUMBER}"
                 powershell 'Start-Sleep -Seconds 10'
                 
-                // Run the Python test
-                bat 'python test.py'
+                // Simple PowerShell test to avoid encoding issues
+                powershell '''
+                    try {
+                        Write-Host "Testing application..."
+                        $response = Invoke-WebRequest -Uri "http://localhost:5001/" -UseBasicParsing -TimeoutSec 10
+                        Write-Host "PASS: Test successful! Status: $($response.StatusCode)"
+                    } catch {
+                        Write-Host "FAIL: Test failed - $($_.Exception.Message)"
+                        exit 1
+                    }
+                '''
                 
                 // Cleanup test container
                 bat "docker stop test-app-${BUILD_NUMBER}"
