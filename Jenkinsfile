@@ -37,7 +37,9 @@ pipeline {
                 script {
                     try {
                         bat "docker run -d --name test-app-${BUILD_NUMBER} -p 5001:5000 ${IMAGE_NAME}:${BUILD_NUMBER}"
-                       powershell 'Start-Sleep -Seconds 15' 
+                        
+                        // Use PowerShell for waiting instead of timeout command
+                        powershell 'Start-Sleep -Seconds 15'
                         
                         // Test using PowerShell
                         powershell '''
@@ -57,8 +59,8 @@ pipeline {
                         throw e
                     } finally {
                         // Always clean up test container
-                        bat "docker stop test-app-${BUILD_NUMBER} >nul 2>&1 || echo Container already stopped"
-                        bat "docker rm test-app-${BUILD_NUMBER} >nul 2>&1 || echo Container already removed"
+                        bat "docker stop test-app-${BUILD_NUMBER} 2>nul || echo Container already stopped"
+                        bat "docker rm test-app-${BUILD_NUMBER} 2>nul || echo Container already removed"
                     }
                 }
             }
@@ -118,14 +120,25 @@ pipeline {
                 script {
                     try {
                         bat 'echo Waiting for deployment to be ready...'
-                        bat 'kubectl wait --for=condition=available --timeout=300s deployment/myapp 2>nul || echo Deployment may still be starting'
+                        
+                        // Use PowerShell for kubectl wait to avoid timeout issues
+                        powershell '''
+                            try {
+                                Write-Host "Waiting for deployment to be available..."
+                                kubectl wait --for=condition=available --timeout=300s deployment/myapp
+                                Write-Host "Deployment is ready!"
+                            } catch {
+                                Write-Host "Deployment may still be starting: $($_.Exception.Message)"
+                            }
+                        '''
+                        
                         bat 'kubectl get pods -l app=myapp'
                         
                         // Get service info
                         powershell '''
                             try {
                                 Write-Host "🚀 Getting service information..."
-                                $nodePort = kubectl get service myapp -o jsonpath='{.spec.ports[0].nodePort}' 2>$null
+                                $nodePort = kubectl get service myapp -o jsonpath="{.spec.ports[0].nodePort}" 2>$null
                                 if ($nodePort) {
                                     Write-Host "✅ Service is available on NodePort: $nodePort"
                                     Write-Host "🔗 Access your app with: minikube service myapp --url"
