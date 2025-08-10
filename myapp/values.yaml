@@ -1,0 +1,65 @@
+# Default values for myapp - DevOps Course Project Phase 3
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Replica count
+replicaCount: 2
+
+# Container image configuration
+image:
+  repository: suenara/myapp
+  pullPolicy: IfNotPresent
+  tag: "" # Will be set by Jenkins pipeline
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 5000
+  targetPort: 5000
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 200m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /
+    port: 5000
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 2
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: 5000
+  initialDelaySeconds: 3
+  periodSeconds: 5
+  timeoutSeconds: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+# Persistent volume for logs
+persistence:
+  enabled: true
+  size: 1Gi
+
+# ConfigMap for environment variables
+configMap:
+  name: myapp-config
+  data:
+    APP_ENV: production
+    LOG_LEVEL: info
+    DEBUG_MODE: "false"
