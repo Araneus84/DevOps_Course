@@ -58,9 +58,16 @@ pipeline {
                         echo "❌ Application test failed: ${e.getMessage()}"
                         throw e
                     } finally {
-                        // Always clean up test container
-                        bat "docker stop test-app-${BUILD_NUMBER} 2>nul || echo Container already stopped"
-                        bat "docker rm test-app-${BUILD_NUMBER} 2>nul || echo Container already removed"
+                        // Clean up test container using PowerShell to avoid redirection issues
+                        powershell '''
+                            try {
+                                docker stop test-app-${env:BUILD_NUMBER}
+                                docker rm test-app-${env:BUILD_NUMBER}
+                                Write-Host "Test container cleaned up"
+                            } catch {
+                                Write-Host "Container already cleaned up"
+                            }
+                        '''
                     }
                 }
             }
@@ -93,13 +100,28 @@ pipeline {
                         // Check if kubectl is available
                         bat 'kubectl version --client'
                         
-                        // Deploy or update
-                        bat """
-                            kubectl set image deployment/myapp myapp=${IMAGE_NAME}:${BUILD_NUMBER} 2>nul || kubectl create deployment myapp --image=${IMAGE_NAME}:${BUILD_NUMBER}
+                        // Deploy or update using PowerShell to avoid redirection issues
+                        powershell """
+                            try {
+                                Write-Host "Attempting to update existing deployment..."
+                                kubectl set image deployment/myapp myapp=${IMAGE_NAME}:${BUILD_NUMBER}
+                                Write-Host "Updated existing deployment"
+                            } catch {
+                                Write-Host "Creating new deployment..."
+                                kubectl create deployment myapp --image=${IMAGE_NAME}:${BUILD_NUMBER}
+                                Write-Host "Created new deployment"
+                            }
                         """
                         
-                        // Expose service
-                        bat 'kubectl expose deployment myapp --port=5000 --type=NodePort 2>nul || echo Service already exists'
+                        // Expose service using PowerShell
+                        powershell '''
+                            try {
+                                kubectl expose deployment myapp --port=5000 --type=NodePort
+                                Write-Host "Service exposed"
+                            } catch {
+                                Write-Host "Service already exists or exposure failed"
+                            }
+                        '''
                         
                         // Show status
                         bat 'kubectl get pods'
@@ -119,7 +141,7 @@ pipeline {
                 echo 'Verifying deployment...'
                 script {
                     try {
-                        bat 'echo Waiting for deployment to be ready...'
+                        echo 'Waiting for deployment to be ready...'
                         
                         // Use PowerShell for kubectl wait to avoid timeout issues
                         powershell '''
@@ -138,14 +160,14 @@ pipeline {
                         powershell '''
                             try {
                                 Write-Host "🚀 Getting service information..."
-                                $nodePort = kubectl get service myapp -o jsonpath="{.spec.ports[0].nodePort}" 2>$null
+                                $nodePort = kubectl get service myapp -o jsonpath="{.spec.ports[0].nodePort}"
                                 if ($nodePort) {
                                     Write-Host "✅ Service is available on NodePort: $nodePort"
                                     Write-Host "🔗 Access your app with: minikube service myapp --url"
                                 }
                                 
                                 # Try to get minikube IP
-                                $minikubeIp = minikube ip 2>$null
+                                $minikubeIp = minikube ip
                                 if ($minikubeIp -and $nodePort) {
                                     Write-Host "📱 Direct URL: http://$minikubeIp`:$nodePort"
                                 }
@@ -168,11 +190,26 @@ pipeline {
         always {
             echo 'Pipeline cleanup...'
             script {
-                // Clean up Docker resources
-                bat 'docker system prune -f 2>nul || echo Docker cleanup completed'
+                // Clean up using PowerShell to avoid redirection issues
+                powershell '''
+                    try {
+                        Write-Host "Cleaning up Docker resources..."
+                        docker system prune -f
+                        Write-Host "Docker cleanup completed"
+                    } catch {
+                        Write-Host "Docker cleanup completed with warnings"
+                    }
+                '''
                 
                 // Clean up any leftover test containers
-                bat "docker rm -f test-app-${BUILD_NUMBER} 2>nul || echo No test containers to clean"
+                powershell """
+                    try {
+                        docker rm -f test-app-${BUILD_NUMBER}
+                        Write-Host "Test container cleanup completed"
+                    } catch {
+                        Write-Host "No test containers to clean"
+                    }
+                """
             }
         }
         success {
@@ -196,8 +233,14 @@ pipeline {
                     Write-Host "  - Check Docker Hub credentials" -ForegroundColor White
                 '''
                 
-                // Clean up any hanging containers
-                bat "docker rm -f test-app-${BUILD_NUMBER} 2>nul || echo No test containers to clean"
+                // Clean up any hanging containers using PowerShell
+                powershell """
+                    try {
+                        docker rm -f test-app-${BUILD_NUMBER}
+                    } catch {
+                        Write-Host "No hanging containers to clean"
+                    }
+                """
             }
         }
     }
