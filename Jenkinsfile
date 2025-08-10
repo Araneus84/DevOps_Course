@@ -47,6 +47,17 @@ pipeline {
             }
         }
         
+        stage('Push') {
+            steps {
+                echo 'Pushing to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+                    bat "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
+                    bat "docker push ${IMAGE_NAME}:latest"
+                }
+            }
+        }
+        
         stage('Deploy') {
             steps {
                 echo 'Deploying with Helm...'
