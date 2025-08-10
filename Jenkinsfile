@@ -37,7 +37,7 @@ pipeline {
                 script {
                     try {
                         bat "docker run -d --name test-app-${BUILD_NUMBER} -p 5001:5000 ${IMAGE_NAME}:${BUILD_NUMBER}"
-                        bat "timeout /t 15 /nobreak >nul"
+                       powershell 'Start-Sleep -Seconds 15' 
                         
                         // Test using PowerShell
                         powershell '''
