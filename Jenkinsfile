@@ -15,233 +15,54 @@ pipeline {
             }
         }
         
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
                 echo 'Building Docker image...'
-                script {
-                    try {
-                        bat "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-                        bat "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
-                        echo "✅ Docker build successful"
-                    } catch (Exception e) {
-                        echo "❌ Docker build failed: ${e.getMessage()}"
-                        throw e
-                    }
+                bat "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
+                bat "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                echo 'Running tests...'
+                bat "docker run -d --name test-app-${BUILD_NUMBER} -p 5001:5000 ${IMAGE_NAME}:${BUILD_NUMBER}"
+                powershell 'Start-Sleep -Seconds 10'
+                
+                // Run the Python test
+                bat 'python test_simple.py'
+                
+                // Cleanup test container
+                bat "docker stop test-app-${BUILD_NUMBER}"
+                bat "docker rm test-app-${BUILD_NUMBER}"
+            }
+        }
+        
+        stage('Push') {
+            steps {
+                echo 'Pushing to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+                    bat "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
+                    bat "docker push ${IMAGE_NAME}:latest"
                 }
             }
         }
         
-        stage('Test Application') {
+        stage('Deploy') {
             steps {
-                echo 'Testing the application...'
-                script {
-                    try {
-                        bat "docker run -d --name test-app-${BUILD_NUMBER} -p 5001:5000 ${IMAGE_NAME}:${BUILD_NUMBER}"
-                        
-                        // Use PowerShell for waiting instead of timeout command
-                        powershell 'Start-Sleep -Seconds 15'
-                        
-                        // Test using PowerShell
-                        powershell '''
-                            try {
-                                Write-Host "Testing application..."
-                                $response = Invoke-WebRequest -Uri "http://localhost:5001/" -UseBasicParsing -TimeoutSec 30
-                                Write-Host "✅ Test passed! Status: $($response.StatusCode)"
-                            } catch {
-                                Write-Host "❌ Test failed: $($_.Exception.Message)"
-                                exit 1
-                            }
-                        '''
-                        
-                        echo "✅ Application test successful"
-                    } catch (Exception e) {
-                        echo "❌ Application test failed: ${e.getMessage()}"
-                        throw e
-                    } finally {
-                        // Clean up test container using PowerShell to avoid redirection issues
-                        powershell '''
-                            try {
-                                docker stop test-app-${env:BUILD_NUMBER}
-                                docker rm test-app-${env:BUILD_NUMBER}
-                                Write-Host "Test container cleaned up"
-                            } catch {
-                                Write-Host "Container already cleaned up"
-                            }
-                        '''
-                    }
-                }
-            }
-        }
-        
-        stage('Push to Docker Hub') {
-            steps {
-                echo 'Pushing image to Docker Hub...'
-                script {
-                    try {
-                        withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                            bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
-                            bat "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
-                            bat "docker push ${IMAGE_NAME}:latest"
-                        }
-                        echo "✅ Docker push successful"
-                    } catch (Exception e) {
-                        echo "❌ Docker push failed: ${e.getMessage()}"
-                        throw e
-                    }
-                }
-            }
-        }
-        
-        stage('Deploy to Minikube') {
-            steps {
-                echo 'Deploying to Minikube...'
-                script {
-                    try {
-                        // Check if kubectl is available
-                        bat 'kubectl version --client'
-                        
-                        // Deploy or update using PowerShell to avoid redirection issues
-                        powershell """
-                            try {
-                                Write-Host "Attempting to update existing deployment..."
-                                kubectl set image deployment/myapp myapp=${IMAGE_NAME}:${BUILD_NUMBER}
-                                Write-Host "Updated existing deployment"
-                            } catch {
-                                Write-Host "Creating new deployment..."
-                                kubectl create deployment myapp --image=${IMAGE_NAME}:${BUILD_NUMBER}
-                                Write-Host "Created new deployment"
-                            }
-                        """
-                        
-                        // Expose service using PowerShell
-                        powershell '''
-                            try {
-                                kubectl expose deployment myapp --port=5000 --type=NodePort
-                                Write-Host "Service exposed"
-                            } catch {
-                                Write-Host "Service already exists or exposure failed"
-                            }
-                        '''
-                        
-                        // Show status
-                        bat 'kubectl get pods'
-                        bat 'kubectl get services'
-                        
-                        echo "✅ Deployment successful"
-                    } catch (Exception e) {
-                        echo "❌ Deployment failed: ${e.getMessage()}"
-                        throw e
-                    }
-                }
-            }
-        }
-        
-        stage('Verify Deployment') {
-            steps {
-                echo 'Verifying deployment...'
-                script {
-                    try {
-                        echo 'Waiting for deployment to be ready...'
-                        
-                        // Use PowerShell for kubectl wait to avoid timeout issues
-                        powershell '''
-                            try {
-                                Write-Host "Waiting for deployment to be available..."
-                                kubectl wait --for=condition=available --timeout=300s deployment/myapp
-                                Write-Host "Deployment is ready!"
-                            } catch {
-                                Write-Host "Deployment may still be starting: $($_.Exception.Message)"
-                            }
-                        '''
-                        
-                        bat 'kubectl get pods -l app=myapp'
-                        
-                        // Get service info
-                        powershell '''
-                            try {
-                                Write-Host "🚀 Getting service information..."
-                                $nodePort = kubectl get service myapp -o jsonpath="{.spec.ports[0].nodePort}"
-                                if ($nodePort) {
-                                    Write-Host "✅ Service is available on NodePort: $nodePort"
-                                    Write-Host "🔗 Access your app with: minikube service myapp --url"
-                                }
-                                
-                                # Try to get minikube IP
-                                $minikubeIp = minikube ip
-                                if ($minikubeIp -and $nodePort) {
-                                    Write-Host "📱 Direct URL: http://$minikubeIp`:$nodePort"
-                                }
-                            } catch {
-                                Write-Host "⚠️ Could not get service details: $($_.Exception.Message)"
-                            }
-                        '''
-                        
-                        echo "✅ Verification complete"
-                    } catch (Exception e) {
-                        echo "⚠️ Verification completed with warnings: ${e.getMessage()}"
-                        // Don't fail the build for verification issues
-                    }
-                }
+                echo 'Deploying with Helm...'
+                bat "helm upgrade --install myapp ./myapp --set image.tag=${BUILD_NUMBER}"
+                bat 'kubectl get pods'
+                bat 'kubectl get services'
             }
         }
     }
     
     post {
         always {
-            echo 'Pipeline cleanup...'
-            script {
-                // Clean up using PowerShell to avoid redirection issues
-                powershell '''
-                    try {
-                        Write-Host "Cleaning up Docker resources..."
-                        docker system prune -f
-                        Write-Host "Docker cleanup completed"
-                    } catch {
-                        Write-Host "Docker cleanup completed with warnings"
-                    }
-                '''
-                
-                // Clean up any leftover test containers
-                powershell """
-                    try {
-                        docker rm -f test-app-${BUILD_NUMBER}
-                        Write-Host "Test container cleanup completed"
-                    } catch {
-                        Write-Host "No test containers to clean"
-                    }
-                """
-            }
-        }
-        success {
-            echo '🎉 Pipeline completed successfully!'
-            script {
-                powershell '''
-                    Write-Host "✅ Deployment successful!" -ForegroundColor Green
-                    Write-Host "🔗 Access your app with: minikube service myapp --url" -ForegroundColor Cyan
-                    Write-Host "📊 Check status with: kubectl get all" -ForegroundColor Yellow
-                '''
-            }
-        }
-        failure {
-            echo '😞 Pipeline failed!'
-            script {
-                powershell '''
-                    Write-Host "❌ Pipeline failed! Check the logs above for details." -ForegroundColor Red
-                    Write-Host "🔧 Common fixes:" -ForegroundColor Yellow
-                    Write-Host "  - Ensure Docker Desktop is running" -ForegroundColor White
-                    Write-Host "  - Ensure Minikube is started" -ForegroundColor White
-                    Write-Host "  - Check Docker Hub credentials" -ForegroundColor White
-                '''
-                
-                // Clean up any hanging containers using PowerShell
-                powershell """
-                    try {
-                        docker rm -f test-app-${BUILD_NUMBER}
-                    } catch {
-                        Write-Host "No hanging containers to clean"
-                    }
-                """
-            }
+            echo 'Cleaning up...'
+            bat "docker rm -f test-app-${BUILD_NUMBER} || echo No containers to clean"
         }
     }
 }
