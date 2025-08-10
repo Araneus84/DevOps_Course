@@ -30,7 +30,7 @@ pipeline {
                 powershell 'Start-Sleep -Seconds 10'
                 
                 // Run the Python test
-                bat 'python test_simple.py'
+                bat 'python test.py'
                 
                 // Cleanup test container
                 bat "docker stop test-app-${BUILD_NUMBER}"
