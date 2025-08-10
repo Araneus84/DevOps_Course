@@ -484,7 +484,58 @@ We welcome contributions to this DevOps course project! Please follow these step
 
 - ✅ Helm Chart Creation
 - ✅ Git Workflow Implementation
-- 🔄 CI/CD Pipeline Development (In Progress)
+- ✅ CI/CD Pipeline Development (Complete)
+
+## CI/CD Pipeline
+
+### Jenkins Pipeline Overview
+
+The project includes a complete Jenkins CI/CD pipeline that automates the build, test, and deployment process:
+
+**Pipeline Stages:**
+
+1. **Checkout** - Retrieves source code from Git repository
+2. **Build** - Creates Docker image with unique build number tag
+3. **Test** - Runs comprehensive test suite including:
+   - Python application tests with proper encoding
+   - Docker container validation
+   - Health check verification
+4. **Push** - Publishes Docker image to Docker Hub registry
+5. **Deploy** - Deploys application to Kubernetes using Helm
+
+### Testing Strategy
+
+The pipeline implements multi-layered testing:
+
+- **Unit Tests**: Python-based application testing
+- **Container Tests**: Docker image validation and health checks
+- **Integration Tests**: End-to-end application functionality verification
+
+### Helm Integration
+
+The CI/CD pipeline leverages Helm for:
+
+- **Package Management**: Standardized Kubernetes deployments
+- **Configuration Management**: Environment-specific values
+- **Release Management**: Versioned deployments with rollback capability
+- **Template Reusability**: Consistent deployment patterns
+
+### Pipeline Configuration
+
+- **Trigger**: Automated on Git push to main branch
+- **Environment**: Windows-compatible PowerShell execution
+- **Registry**: Docker Hub integration for image storage
+- **Deployment Target**: Minikube local Kubernetes cluster
+
+### Usage
+
+```bash
+# Pipeline automatically triggers on push, or run manually:
+# 1. Access Jenkins dashboard
+# 2. Select pipeline job
+# 3. Click "Build Now"
+# 4. Monitor build progress and deployment
+```
 
 ---
 
