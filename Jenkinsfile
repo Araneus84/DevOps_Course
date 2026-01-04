@@ -1,0 +1,75 @@
+pipeline {
+    agent {
+        label 'windows'
+    }
+    
+    environment {
+        IMAGE_NAME = 'suenara/myapp'
+    }
+    
+    stages {
+        stage('Build') {
+            steps {
+                echo 'Building Docker image...'
+                bat """
+                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest
+                """
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                echo 'Running tests...'
+                bat "docker run -d --name test-app-${BUILD_NUMBER} -p 5001:5000 ${IMAGE_NAME}:${BUILD_NUMBER}"
+                powershell 'Start-Sleep -Seconds 10'
+                                
+                powershell """
+                    try {
+                        Write-Host "Testing application..."
+                        $response = Invoke-WebRequest -Uri "http://localhost:5001/" -UseBasicParsing -TimeoutSec 10
+                        Write-Host "PASS: Test successful! Status: $($response.StatusCode)"
+                    } catch {
+                        Write-Host "FAIL: Test failed - $($_.Exception.Message)"
+                        exit 1
+                    }
+                """
+                bat """
+                    docker stop test-app-${BUILD_NUMBER}
+                    docker rm test-app-${BUILD_NUMBER}
+                """
+            }
+        }
+        
+        stage('Push') {
+            steps {
+                echo 'Pushing to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    bat """
+                        echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                        docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                        docker push ${IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            steps {
+                echo 'Deploying with Helm...'
+                bat """
+                    helm upgrade --install myapp ./myapp --set image.tag=${BUILD_NUMBER}
+                    kubectl get pods
+                    kubectl get services
+                """
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Cleaning up...'
+            bat "docker rm -f test-app-${BUILD_NUMBER} || echo No containers to clean"
+        }
+    }
+}

@@ -1,7 +1,7 @@
 services:
   myapp:
     build: .
-    image: suenara/myapp:1
+    image: suenara/myapp:latest
     ports:
       - "5000:5000"
     volumes:
