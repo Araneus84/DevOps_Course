@@ -41,4 +41,5 @@ coverage/
 .yarn/unplugged
 .yarn/build-state.yml
 .pnp.*
+agent.jar
 
