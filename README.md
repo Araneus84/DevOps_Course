@@ -1,4 +1,4 @@
-# DevOps Course Project: Container Orchestration and Package Management
+# DevOps Project: Container Orchestration and Package Management
 
 ---
 
@@ -544,3 +544,4 @@ The CI/CD pipeline leverages Helm for:
 - **Course Instructor:** For providing comprehensive DevOps guidance
 - **DevOps Community:** For best practices and tooling recommendations
 - **Open Source Projects:** Docker, Kubernetes, Helm, and Jenkins teams
+
