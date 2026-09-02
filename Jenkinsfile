@@ -8,18 +8,13 @@ pipeline {
     }
     
     stages {
-        stage('Checkout') {
-            steps {
-                echo 'Getting code from GitHub...'
-                checkout scm
-            }
-        }
-        
         stage('Build') {
             steps {
                 echo 'Building Docker image...'
-                bat "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ."
-                bat "docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest"
+                bat """
+                    docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                    docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${IMAGE_NAME}:latest
+                """
             }
         }
         
@@ -29,8 +24,7 @@ pipeline {
                 bat "docker run -d --name test-app-${BUILD_NUMBER} -p 5001:5000 ${IMAGE_NAME}:${BUILD_NUMBER}"
                 powershell 'Start-Sleep -Seconds 10'
                 
-                // Simple PowerShell test to avoid encoding issues
-                powershell '''
+                powershell """
                     try {
                         Write-Host "Testing application..."
                         $response = Invoke-WebRequest -Uri "http://localhost:5001/" -UseBasicParsing -TimeoutSec 10
@@ -39,11 +33,12 @@ pipeline {
                         Write-Host "FAIL: Test failed - $($_.Exception.Message)"
                         exit 1
                     }
-                '''
+                """
                 
-                // Cleanup test container
-                bat "docker stop test-app-${BUILD_NUMBER}"
-                bat "docker rm test-app-${BUILD_NUMBER}"
+                bat """
+                    docker stop test-app-${BUILD_NUMBER}
+                    docker rm test-app-${BUILD_NUMBER}
+                """
             }
         }
         
@@ -51,9 +46,11 @@ pipeline {
             steps {
                 echo 'Pushing to Docker Hub...'
                 withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
-                    bat "docker push ${IMAGE_NAME}:${BUILD_NUMBER}"
-                    bat "docker push ${IMAGE_NAME}:latest"
+                    bat """
+                    echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                    docker push ${IMAGE_NAME}:${BUILD_NUMBER}
+                    docker push ${IMAGE_NAME}:latest
+                    """
                 }
             }
         }
@@ -61,9 +58,11 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying with Helm...'
-                bat "helm upgrade --install myapp ./myapp --set image.tag=${BUILD_NUMBER}"
-                bat 'kubectl get pods'
-                bat 'kubectl get services'
+                bat """
+                helm upgrade --install myapp ./myapp --set image.tag=${BUILD_NUMBER}
+                kubectl get pods
+                kubectl get services
+                """
             }
         }
     }
